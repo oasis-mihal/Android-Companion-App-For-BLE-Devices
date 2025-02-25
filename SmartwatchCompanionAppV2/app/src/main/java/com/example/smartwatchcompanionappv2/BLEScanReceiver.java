@@ -2,6 +2,9 @@ package com.example.smartwatchcompanionappv2;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanRecord;
+import android.bluetooth.le.ScanResult;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -9,10 +12,6 @@ import android.os.Bundle;
 import android.util.Log;
 
 import java.util.ArrayList;
-
-import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat;
-import no.nordicsemi.android.support.v18.scanner.ScanRecord;
-import no.nordicsemi.android.support.v18.scanner.ScanResult;
 
 /* Receives broadcasts that indicate a device has been found by the background BLE scan
 when a device is found it then starts a foreground service to handle the communication to the BLE
@@ -33,7 +32,7 @@ public class BLEScanReceiver extends BroadcastReceiver {
                 Bundle extras = intent.getExtras();
 
                 if (extras != null) {
-                    Object o = extras.get(BluetoothLeScannerCompat.EXTRA_LIST_SCAN_RESULT);
+                    Object o = extras.get(BluetoothLeScanner.EXTRA_LIST_SCAN_RESULT);
                     if (o instanceof ArrayList) {
                         ArrayList<ScanResult> scanResults = (ArrayList<ScanResult>) o;
                         Log.v(TAG, "There are " + scanResults.size() + " results");
@@ -60,6 +59,7 @@ public class BLEScanReceiver extends BroadcastReceiver {
 //                                        BLEScanner.stopScan(MainActivity.reference);
                                         if (result.getDevice() != null) {
                                             MainActivity.currentDevice = result.getDevice();
+                                            Log.i(TAG, " Trying to start BLEService");
                                             context.startForegroundService(new Intent(context, BLEService.class));
                                         }
                                     }

@@ -27,6 +27,7 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.media.AudioManager;
 import android.os.Build;
+import android.os.OutcomeReceiver;
 import android.util.Base64;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -42,6 +43,8 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 public class BLEGATT {
 
@@ -55,7 +58,7 @@ public class BLEGATT {
     public String currentUUID = MainActivity.COMMAND_UUID;
 
     //constants
-    public static final String BLE_UPDATE = "com.companionApp.BLE_UPDATE";
+    public static final String BLE_UPDATE = "com.smartwatchCompanion.BLE_UPDATE";
     private static String TAG = "BLEGATT";
 
     //receiver
@@ -64,6 +67,7 @@ public class BLEGATT {
 
     //current message
     public MessageClipper currentMessage = new MessageClipper("");
+    public Executor executor = Executors.newSingleThreadExecutor();
 
     //reference and context
     private static BluetoothGatt bluetoothGatt;
@@ -145,6 +149,7 @@ public class BLEGATT {
             Log.i(TAG, "Reading BLE Characteristic to indicate end of transmission");
             BluetoothGattCharacteristic bgc = bluetoothGatt.getService(UUID.fromString(MainActivity.SERVICE_UUID)).getCharacteristic(UUID.fromString(currentUUID));
             bluetoothGatt.readCharacteristic(bgc);
+
         }
 
         return false;
@@ -205,6 +210,7 @@ public class BLEGATT {
                 bluetoothGatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH);
 
                 //discover services that the device has available
+                Log.i(TAG, "Launch Service Discovery");
                 gatt.discoverServices();
 
 

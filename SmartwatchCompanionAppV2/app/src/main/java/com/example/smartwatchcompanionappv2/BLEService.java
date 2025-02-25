@@ -8,6 +8,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
@@ -44,7 +45,8 @@ public class BLEService extends Service {
 
         Intent notificationIntent = new Intent(this.getApplicationContext(), BLEService.class);
         PendingIntent pendingIntent =
-                PendingIntent.getActivity(this.getApplicationContext(), 300, notificationIntent, 0);
+                PendingIntent.getActivity(this.getApplicationContext(), 300, notificationIntent,
+                        PendingIntent.FLAG_MUTABLE);
 
         Notification notification = new NotificationCompat.Builder(this.getApplicationContext(), CHANNEL_ID)
                 .setContentTitle("ESP32 Smartwatch")
@@ -53,7 +55,7 @@ public class BLEService extends Service {
                 .setContentIntent(pendingIntent)
                 .build();
 
-        startForeground(1, notification);
+        startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
 
     }
 
@@ -68,6 +70,7 @@ public class BLEService extends Service {
             blegatt = new BLEGATT(this.getApplicationContext());
             blegatt.connect(MainActivity.currentDevice);
         }catch (RuntimeException e){
+            Log.i(TAG, "Failed to create BLEGatt: " + e);
             this.onDestroy();
         }
 

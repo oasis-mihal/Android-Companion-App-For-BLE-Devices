@@ -14,12 +14,16 @@ import static org.ligi.tracedroid.sending.TraceDroidEmailSenderKt.sendTraceDroid
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanResult;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -70,8 +74,11 @@ public class MainActivity extends AppCompatActivity {
         TraceDroid.INSTANCE.init(this); // passing Application Context
         sendTraceDroidStackTracesIfExist("", this);
 
+        Context context = this.getApplicationContext();
         //begin background scan, this uses the nordic semiconductor Android Scanner Compat Library
-        BLEScanner.startScan(this.getApplicationContext());
+//        BLEManager bleManager = new BLEManager(context);
+//        bleManager.startScanning();
+        BLEScanner.startScan(context);
 
         //whitelist in logcat
         try {
