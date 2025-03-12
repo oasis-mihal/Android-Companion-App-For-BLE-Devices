@@ -52,6 +52,13 @@ public class BLEScanner {
             return;
         }
 
+        //if (ActivityCompat.checkSelfPermission(con, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+        //    Log.i(TAG, "Doesn't have post notifications permission");
+
+        //    ActivityCompat.requestPermissions(MainActivity.reference, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 2);
+        //    return;
+        //}
+
         Intent intent = new Intent(con, BLEScanReceiver.class); // explicite intent
         intent.setAction(BLEScanReceiver.ACTION_SCANNER_FOUND_DEVICE);
 //        intent.putExtra("some.extra", value); // optional

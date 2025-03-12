@@ -1,6 +1,5 @@
 package com.example.smartwatchcompanionappv2;
 
-import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -40,7 +39,6 @@ import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -49,10 +47,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 public class BLEGATT {
-    private static final String TAG = "BLEGATT";
-
-    private static final UUID CHARACTERISTIC_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"); // Standard Client Characteristic Configuration Descriptor (CCCD)
-
 
     //status variables
     static private boolean mConnected = false;
@@ -60,25 +54,24 @@ public class BLEGATT {
     static private String lastConnected = "";
     boolean writeInProgress = false;
     static boolean notificationUpdateServiceFound = false;
-    // TODO: I think I have to change this
-    int mtuSize = 256;//16;
+    int mtuSize = 16;
     public String currentUUID = MainActivity.COMMAND_UUID;
 
-
-
-    //current message
-    public MessageClipper currentMessage = new MessageClipper("");
+    //constants
+    public static final String BLE_UPDATE = "com.smartwatchCompanion.BLE_UPDATE";
+    private static String TAG = "BLEGATT";
 
     //receiver
     private static BLEUpdateReceiver nReceiver;
     private static NotificationEventReceiver neReceiver;
 
+    //current message
+    public MessageClipper currentMessage = new MessageClipper("");
+    public Executor executor = Executors.newSingleThreadExecutor();
+
     //reference and context
     private static BluetoothGatt bluetoothGatt;
     private Context con;
-
-    //constants
-    public static final String BLE_UPDATE = "com.smartwatchCompanion.BLE_UPDATE";
 
     //constructor
     public BLEGATT(Context c) {
@@ -121,10 +114,10 @@ public class BLEGATT {
         return ret;
     }
 
-    @SuppressLint("MissingPermission")
-    public void connect(BluetoothDevice device) {
-        Log.d(TAG, "Connecting to device: " + device.getAddress());
-        bluetoothGatt = device.connectGatt(con, true, gattCallback);
+    //connects to a bluetooth device and establishes a gatt server
+    public void connect(BluetoothDevice sr) {
+        Log.i(TAG, "attempting to connect to device: " + sr.getName() + " With Address " + sr.getAddress());
+        bluetoothGatt = sr.connectGatt(con, true, gattCallback);
     }
 
     //updates the ble remote device with the current message.
@@ -186,6 +179,10 @@ public class BLEGATT {
         return false;
     }
 
+
+    /* Bluetooth gatt callbacks, functionally everything important happens here
+
+     */
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
         @Override
         public void onPhyUpdate(BluetoothGatt gatt, int txPhy, int rxPhy, int status) {
@@ -196,13 +193,15 @@ public class BLEGATT {
         public void onPhyRead(BluetoothGatt gatt, int txPhy, int rxPhy, int status) {
             super.onPhyRead(gatt, txPhy, rxPhy, status);
         }
+
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             super.onConnectionStateChange(gatt, status, newState);
             Log.d(TAG, "Connection State is now: " + newState);
 
             //device is connected
-            if (newState == BluetoothGatt.STATE_CONNECTED) {
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+
                 //set connection state
                 mConnected = true;
                 lastConnected = getDateAndTime();
@@ -214,11 +213,12 @@ public class BLEGATT {
                 Log.i(TAG, "Launch Service Discovery");
                 gatt.discoverServices();
 
+
                 //indicate we can write again
                 writeInProgress = false;
 
                 //device is disconnected
-            } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 //update status variables
                 mConnected = false;
                 lastConnected = getDateAndTime();
@@ -227,39 +227,45 @@ public class BLEGATT {
                 writeInProgress = false;
 
                 Log.i(TAG, "Disconnected from GATT server.");
+
             } else {
                 //this isn't actually possible but whatever
                 Log.i(TAG, "Other status change in BLE connection:" + newState);
             }
 
+            //update the status text on the home screen of the app.
+//            MainActivity.updateNotifications();
             MainActivity.updateStatusText();
         }
 
         @Override
+        /* this callback is called when services are discovered, when we originally connect to the BLE device the android
+        phone knows nothing about what characteristics or services it has, this will only be called after discoverServices() has been
+        called and the services have been discovered
+         */
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             super.onServicesDiscovered(gatt, status);
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                BluetoothGattService service = gatt.getService(UUID.fromString(MainActivity.SERVICE_UUID));
-                if (service != null) {
-                    BluetoothGattCharacteristic characteristic = service.getCharacteristic(UUID.fromString(MainActivity.COMMAND_UUID));
-                    if (characteristic != null) {
-                        gatt.setCharacteristicNotification(characteristic, true);
 
-                        BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
-                                UUID.fromString("00002902-0000-1000-8000-00805f9b34fb") // CCCD UUID
-                        );
-                        if (descriptor != null) {
-                            descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                            gatt.writeDescriptor(descriptor);
-                        }
+            //log spam
+            Log.i(TAG, gatt.getService(UUID.fromString(MainActivity.SERVICE_UUID)).getUuid().toString());
+            Log.i(TAG, "Obtained service");
 
-                        Log.d(TAG, "Subscribed to characteristic notifications.");
-                    }
+            //find whether we have the notification update service.
+            List<BluetoothGattService> foundServices = gatt.getServices();
+
+            //if any of the characteristics available are subscribeable then subscribe to them
+            List<BluetoothGattCharacteristic> chars = gatt.getService(UUID.fromString(MainActivity.SERVICE_UUID)).getCharacteristics();
+
+            for (int a = 0; a < chars.size(); a++) {
+                if ((chars.get(a).getProperties() & BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0) {
+                    gatt.setCharacteristicNotification(chars.get(a), true);
+                    Log.i(TAG, "Subscribed to characteristic: " + new String(chars.get(a).getUuid().toString()));
                 }
             }
 
             //now that the services are discoverred lets see if we can request a larger MTU for quicker data transmission
-            //gatt.requestMtu(256);
+            gatt.requestMtu(256);
+
         }
 
         @Override
@@ -301,9 +307,10 @@ public class BLEGATT {
         all the data transmission to the device basically happens here, we load up a MessageClipper object and
         send a broadcast, the class will take care of the operation from there on out.
          */
-        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic
+                characteristic) {
             super.onCharacteristicChanged(gatt, characteristic);
-            if (UUID.fromString(MainActivity.COMMAND_UUID).equals(characteristic.getUuid())) {
+            if (characteristic.getUuid().equals(UUID.fromString(MainActivity.COMMAND_UUID))) {
                 String charVal = new String(characteristic.getValue(), StandardCharsets.US_ASCII);
                 Log.i(TAG, "Command characteristic changed to:" + charVal);
                 switch (charVal) {
@@ -466,7 +473,9 @@ public class BLEGATT {
                 }
                 writeInProgress = false;
             }
+
         }
+
         @Override
         public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor,
                                      int status) {
@@ -544,6 +553,23 @@ public class BLEGATT {
         return str;
     }
 
+
+    /* gets the app package from the application name
+    this code comes directly from stackoverflow https://stackoverflow.com/questions/41918056/get-package-name-of-another-app-by-app-name     */
+    public String getPackNameByAppName(String name) {
+        PackageManager pm = con.getPackageManager();
+        List<ApplicationInfo> l = pm.getInstalledApplications(PackageManager.GET_META_DATA);
+        String packName = "";
+        for (ApplicationInfo ai : l) {
+            String n = (String) pm.getApplicationLabel(ai);
+            if (n.contains(name) || name.contains(n)) {
+                packName = ai.packageName;
+            }
+        }
+
+        return packName;
+    }
+
     /*Converts drawable object to a bitmap so that we can transmit it.
     this code comes directly from stackoverflow
     https://stackoverflow.com/questions/3035692/how-to-convert-a-drawable-to-a-bitmap
@@ -582,6 +608,7 @@ public class BLEGATT {
         return bitmap;
     }
 
+
     boolean transmitNewNotificationUpdate(String status) {
         BluetoothGattCharacteristic bgc;
         try {
@@ -613,7 +640,7 @@ public class BLEGATT {
         }
     }
 
-    // TODO: Finish adding everything from the bak file
+
     /*
     Broadcast receiver used to update the remote device, functionally everything calls here.
     We use a broadcast receiver here to prevent binding up the thread responsible for the BLE
@@ -625,7 +652,6 @@ public class BLEGATT {
             update();
         }
     }
-
 
     //just presses a given key on the device, this allows external devices to control the android device
     public void pressMediaKey(int ke) {
@@ -645,6 +671,4 @@ public class BLEGATT {
         return formattedDate;
 
     }
-
-
 }

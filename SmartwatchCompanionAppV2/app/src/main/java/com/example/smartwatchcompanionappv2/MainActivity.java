@@ -73,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
 
         TraceDroid.INSTANCE.init(this); // passing Application Context
         sendTraceDroidStackTracesIfExist("", this);
-
+        reference = this;
         Context context = this.getApplicationContext();
         //begin background scan, this uses the nordic semiconductor Android Scanner Compat Library
 //        BLEManager bleManager = new BLEManager(context);
@@ -91,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         txtView = (TextView) findViewById(R.id.textView);
         txtView.setText("Test");
-        reference = this;
+
 
         //request some permissions (There are better ways to do this)
         checkPermission(Manifest.permission.READ_CALENDAR, 10);

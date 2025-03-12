@@ -80,8 +80,8 @@ public class BLEService extends Service {
 
     @Override
     public void onDestroy() {
-        Log.i(TAG, "Device Disconnected, BLESend service is now ending");
-        BLEScanner.startScan(MainActivity.reference.getApplicationContext());
+        BLEScanner.startScan(this.getApplicationContext());
+
         isRunning = false;
 
         super.onDestroy();
